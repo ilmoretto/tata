@@ -8,7 +8,7 @@
     />
     <title>tatá</title>
     <link rel="stylesheet" href="base.css" />
-    <link rel="preload" href="girlfriend.png" as="image" />
+    <link rel="preload" href="girlFriend.png" as="image" />
     <script defer src="starfield.js"></script>
   </head>
   <body>
@@ -16,14 +16,14 @@
     <div id="notes-layer"></div>
     <div id="center-orb">
       <img id="blackhole" src="buracoNegro.svg" alt="Buraco Negro" />
-      <img id="girlfriend" src="girlfriend.png" alt="Minha namorada" decoding="async" loading="eager" fetchpriority="high" />
+      <img id="girlfriend" src="girlFriend.png" alt="Minha namorada" decoding="async" loading="eager" fetchpriority="high" />
     </div>
     <div class="gradient-container"></div>
     <script>
       (function () {
         var img = document.getElementById('girlfriend');
         if (!img) return;
-        var fallbacks = ['girFriend.png', 'girlfriend.PNG', 'girlfriend.jpg', 'girlfriend.jpeg', 'girlfriend.webp'];
+        var fallbacks = ['girlfriend.png', 'girlfriend.PNG', 'girlfriend.jpg', 'girlfriend.jpeg', 'girlfriend.webp', 'girlFriend.png'];
         var i = 0;
         img.addEventListener('error', function onerr() {
           if (i >= fallbacks.length) return;
