@@ -8,6 +8,7 @@
     />
     <title>tatá</title>
     <link rel="stylesheet" href="base.css" />
+    <link rel="preload" href="girlfriend.png" as="image" />
     <script defer src="starfield.js"></script>
   </head>
   <body>
@@ -15,7 +16,7 @@
     <div id="notes-layer"></div>
     <div id="center-orb">
       <img id="blackhole" src="buracoNegro.svg" alt="Buraco Negro" />
-      <img id="girlfriend" src="girlfriend.png" alt="Minha namorada" />
+      <img id="girlfriend" src="girlfriend.png" alt="Minha namorada" decoding="async" loading="eager" fetchpriority="high" />
     </div>
     <div class="gradient-container"></div>
   </body>

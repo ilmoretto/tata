@@ -16,6 +16,9 @@
   let cy = 0;
   let dpr = window.devicePixelRatio || 1;
   let FOV = 600; // updated on resize
+  // Camera offsets for panning (world units)
+  let camX = 0;
+  let camY = 0;
 
   let stars = [];
   let starCount = 0;
@@ -26,7 +29,9 @@
   const SUNFLOWER_RATE = 0.09; // as estrelas viram sunflower
   const WHEEL_SENSITIVITY = 0.0015; // tune forward/backward speed
   const PINCH_SENSITIVITY = 0.006;  // tune for touch pinch
-  const MESSAGE_RATE = 0.5; // ~75% das estrelas com mensagem
+  const MESSAGE_RATE = 0.01; // ~1% das estrelas com mensagem
+  const DRAG_Z_SENSITIVITY = 0.002; // avanço/recuo com arrasto de um dedo
+  const DRAG_PAN_MULT = 1.0;        // pan lateral com arrasto
 
   const PHRASES = [
     'eu te amo',
@@ -202,8 +207,8 @@
       const s = ordered[i];
       // Perspective projection
       const invZ = 1 / s.z;
-      const sx = cx + s.x * FOV * invZ;
-      const sy = cy + s.y * FOV * invZ;
+      const sx = cx + (s.x + camX) * FOV * invZ;
+      const sy = cy + (s.y + camY) * FOV * invZ;
 
       // Cull stars far offscreen to save fill
       if (sx < -50 || sx > width + 50 || sy < -50 || sy > height + 50) continue;
@@ -243,8 +248,8 @@
   function project(s) {
     const invZ = 1 / s.z;
     return {
-      sx: cx + s.x * FOV * invZ,
-      sy: cy + s.y * FOV * invZ,
+      sx: cx + (s.x + camX) * FOV * invZ,
+      sy: cy + (s.y + camY) * FOV * invZ,
       invZ
     };
   }
@@ -308,9 +313,11 @@
     bumpActivity();
   }
 
-  // Pointer-based pinch
+  // Pointer-based gestures (pinch + drag)
   const pointers = new Map();
   let lastPinchDist = null;
+  let lastDragX = null;
+  let lastDragY = null;
 
   function distance(p1, p2) {
     const dx = p1.x - p2.x;
@@ -322,6 +329,10 @@
     pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
     try { canvas.setPointerCapture(e.pointerId); } catch { }
     bumpActivity();
+    if (pointers.size === 1) {
+      lastDragX = e.clientX;
+      lastDragY = e.clientY;
+    }
   }
 
   function onPointerMove(e) {
@@ -340,6 +351,21 @@
       }
       lastPinchDist = d;
       e.preventDefault();
+    } else if (pointers.size === 1) {
+      // One-finger drag: pan + depth
+      if (lastDragX !== null && lastDragY !== null) {
+        const dx = e.clientX - lastDragX;
+        const dy = e.clientY - lastDragY;
+        camX -= (dx / FOV) * DRAG_PAN_MULT;
+        camY -= (dy / FOV) * DRAG_PAN_MULT;
+        const dz = -dy * DRAG_Z_SENSITIVITY;
+        if (dz !== 0) advance(dz);
+        draw();
+        updateNotesPositions();
+      }
+      lastDragX = e.clientX;
+      lastDragY = e.clientY;
+      e.preventDefault();
     }
   }
 
@@ -347,15 +373,22 @@
     pointers.delete(e.pointerId);
     if (pointers.size < 2) lastPinchDist = null;
     bumpActivity();
+    if (pointers.size === 0) { lastDragX = lastDragY = null; }
   }
 
   // Touch fallback for browsers without Pointer Events
   let lastTouchDist = null;
+  let lastTouchX = null;
+  let lastTouchY = null;
   function onTouchStart(e) {
     bumpActivity();
     if (e.touches.length >= 2) {
       const t1 = e.touches[0], t2 = e.touches[1];
       lastTouchDist = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
+      e.preventDefault();
+    } else if (e.touches.length === 1) {
+      lastTouchX = e.touches[0].clientX;
+      lastTouchY = e.touches[0].clientY;
       e.preventDefault();
     }
   }
@@ -370,11 +403,25 @@
       updateNotesPositions();
       lastTouchDist = d;
       e.preventDefault();
+    } else if (e.touches.length === 1 && lastTouchX !== null && lastTouchY !== null) {
+      const t = e.touches[0];
+      const dx = t.clientX - lastTouchX;
+      const dy = t.clientY - lastTouchY;
+      camX -= (dx / FOV) * DRAG_PAN_MULT;
+      camY -= (dy / FOV) * DRAG_PAN_MULT;
+      const dz = -dy * DRAG_Z_SENSITIVITY;
+      if (dz !== 0) advance(dz);
+      draw();
+      updateNotesPositions();
+      lastTouchX = t.clientX;
+      lastTouchY = t.clientY;
+      e.preventDefault();
     }
   }
   function onTouchEnd(e) {
     if (!e || !e.touches || e.touches.length < 2) lastTouchDist = null;
     bumpActivity();
+    if (!e || !e.touches || e.touches.length === 0) { lastTouchX = lastTouchY = null; }
   }
 
   function onClick(e) {
@@ -419,4 +466,3 @@
     canvas.addEventListener('touchcancel', onTouchEnd, { passive: true });
   }
 })();
-
