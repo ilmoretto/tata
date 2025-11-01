@@ -205,6 +205,12 @@
 
     for (let i = 0; i < ordered.length; i++) {
       const s = ordered[i];
+      // Tile wrap on X/Y so field appears infinite while panning
+      // Stars live in a repeating grid of size 2x2 around camera
+      while ((s.x + camX) > 1.2) s.x -= 2;
+      while ((s.x + camX) < -1.2) s.x += 2;
+      while ((s.y + camY) > 1.2) s.y -= 2;
+      while ((s.y + camY) < -1.2) s.y += 2;
       // Perspective projection
       const invZ = 1 / s.z;
       const sx = cx + (s.x + camX) * FOV * invZ;
@@ -247,9 +253,15 @@
 
   function project(s) {
     const invZ = 1 / s.z;
+    // Mirror wrap used in draw to keep positions consistent for UI
+    let wx = s.x, wy = s.y;
+    while ((wx + camX) > 1.2) wx -= 2;
+    while ((wx + camX) < -1.2) wx += 2;
+    while ((wy + camY) > 1.2) wy -= 2;
+    while ((wy + camY) < -1.2) wy += 2;
     return {
-      sx: cx + (s.x + camX) * FOV * invZ,
-      sy: cy + (s.y + camY) * FOV * invZ,
+      sx: cx + (wx + camX) * FOV * invZ,
+      sy: cy + (wy + camY) * FOV * invZ,
       invZ
     };
   }
