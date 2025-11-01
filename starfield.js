@@ -32,6 +32,9 @@
   const MESSAGE_RATE = 0.01; // ~1% das estrelas com mensagem
   const DRAG_Z_SENSITIVITY = 0.002; // avanço/recuo com arrasto de um dedo
   const DRAG_PAN_MULT = 1.0;        // pan lateral com arrasto
+  const TAP_DISTANCE = 10;          // px
+  const TAP_TIME_MS = 350;          // ms
+  const PAN_THRESHOLD = 3;          // px
 
   const PHRASES = [
     'eu te amo',
@@ -266,6 +269,27 @@
     };
   }
 
+  function tryOpenNoteAt(mx, my) {
+    let best = null;
+    let bestDist2 = Infinity;
+    for (let i = 0; i < stars.length; i++) {
+      const s = stars[i];
+      if (!s.message) continue;
+      const { sx, sy } = project(s);
+      const dx = sx - mx;
+      const dy = sy - my;
+      const d2 = dx * dx + dy * dy;
+      if (d2 < bestDist2) { bestDist2 = d2; best = s; }
+    }
+    const threshold = 18;
+    if (best && bestDist2 <= threshold * threshold) {
+      openNoteForStar(best, { autoCloseMs: MANUAL_CLOSE_MS });
+      bumpActivity();
+      return true;
+    }
+    return false;
+  }
+
   function positionNoteElement(star, el) {
     const { sx, sy } = project(star);
     const toRight = sx < width * 0.5;
@@ -325,11 +349,12 @@
     bumpActivity();
   }
 
-  // Pointer-based gestures (pinch + drag)
+  // Pointer-based gestures (pinch + drag + tap)
   const pointers = new Map();
   let lastPinchDist = null;
   let lastDragX = null;
   let lastDragY = null;
+  let tapStartX = null, tapStartY = null, tapStartTime = 0, tapPointerId = null, isTapDragging = false;
 
   function distance(p1, p2) {
     const dx = p1.x - p2.x;
@@ -344,6 +369,11 @@
     if (pointers.size === 1) {
       lastDragX = e.clientX;
       lastDragY = e.clientY;
+      tapStartX = e.clientX;
+      tapStartY = e.clientY;
+      tapStartTime = Date.now();
+      tapPointerId = e.pointerId;
+      isTapDragging = false;
     }
   }
 
@@ -364,16 +394,21 @@
       lastPinchDist = d;
       e.preventDefault();
     } else if (pointers.size === 1) {
-      // One-finger drag: pan + depth
+      // One-finger drag: pan + depth, with tap threshold
       if (lastDragX !== null && lastDragY !== null) {
         const dx = e.clientX - lastDragX;
         const dy = e.clientY - lastDragY;
-        camX -= (dx / FOV) * DRAG_PAN_MULT;
-        camY -= (dy / FOV) * DRAG_PAN_MULT;
-        const dz = -dy * DRAG_Z_SENSITIVITY;
-        if (dz !== 0) advance(dz);
-        draw();
-        updateNotesPositions();
+        const fromStart = Math.hypot(e.clientX - (tapStartX ?? e.clientX), e.clientY - (tapStartY ?? e.clientY));
+        if (!isTapDragging && fromStart > TAP_DISTANCE) isTapDragging = true;
+        if (isTapDragging || Math.abs(dx) > PAN_THRESHOLD || Math.abs(dy) > PAN_THRESHOLD) {
+          isTapDragging = true;
+          camX -= (dx / FOV) * DRAG_PAN_MULT;
+          camY -= (dy / FOV) * DRAG_PAN_MULT;
+          const dz = -dy * DRAG_Z_SENSITIVITY;
+          if (dz !== 0) advance(dz);
+          draw();
+          updateNotesPositions();
+        }
       }
       lastDragX = e.clientX;
       lastDragY = e.clientY;
@@ -385,7 +420,18 @@
     pointers.delete(e.pointerId);
     if (pointers.size < 2) lastPinchDist = null;
     bumpActivity();
-    if (pointers.size === 0) { lastDragX = lastDragY = null; }
+    if (pointers.size === 0) {
+      // treat as tap if short and not dragged
+      if (tapPointerId === e.pointerId) {
+        const dt = Date.now() - (tapStartTime || 0);
+        const moved = Math.hypot((e.clientX - (tapStartX ?? e.clientX)), (e.clientY - (tapStartY ?? e.clientY)));
+        if (!isTapDragging && dt <= TAP_TIME_MS && moved <= TAP_DISTANCE) {
+          tryOpenNoteAt(e.clientX, e.clientY);
+        }
+      }
+      lastDragX = lastDragY = null;
+      tapPointerId = null; tapStartX = tapStartY = null; isTapDragging = false;
+    }
   }
 
   // Touch fallback for browsers without Pointer Events
@@ -437,19 +483,8 @@
   }
 
   function onClick(e) {
-    const mx = e.clientX;
-    const my = e.clientY;
-    let best = null;
-    let bestDist2 = Infinity;
-    for (let i = 0; i < stars.length; i++) {
-      const s = stars[i];
-      if (!s.message) continue; // só estrelas com mensagem
-      const { sx, sy } = project(s);
-      const dx = sx - mx;
-      const dy = sy - my;
-      const d2 = dx * dx + dy * dy;
-      if (d2 < bestDist2) { bestDist2 = d2; best = s; }
-    }
+    tryOpenNoteAt(e.clientX, e.clientY);
+  }
     const threshold = 18;
     if (best && bestDist2 <= threshold * threshold) {
       openNoteForStar(best, { autoCloseMs: MANUAL_CLOSE_MS });
