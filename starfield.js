@@ -438,6 +438,7 @@
   let lastTouchDist = null;
   let lastTouchX = null;
   let lastTouchY = null;
+  let touchTapStartX = null, touchTapStartY = null, touchTapTime = 0, touchTapDragging = false;
   function onTouchStart(e) {
     bumpActivity();
     if (e.touches.length >= 2) {
@@ -447,6 +448,10 @@
     } else if (e.touches.length === 1) {
       lastTouchX = e.touches[0].clientX;
       lastTouchY = e.touches[0].clientY;
+      touchTapStartX = lastTouchX;
+      touchTapStartY = lastTouchY;
+      touchTapTime = Date.now();
+      touchTapDragging = false;
       e.preventDefault();
     }
   }
@@ -465,12 +470,17 @@
       const t = e.touches[0];
       const dx = t.clientX - lastTouchX;
       const dy = t.clientY - lastTouchY;
-      camX -= (dx / FOV) * DRAG_PAN_MULT;
-      camY -= (dy / FOV) * DRAG_PAN_MULT;
-      const dz = -dy * DRAG_Z_SENSITIVITY;
-      if (dz !== 0) advance(dz);
-      draw();
-      updateNotesPositions();
+      const fromStart = Math.hypot(t.clientX - (touchTapStartX ?? t.clientX), t.clientY - (touchTapStartY ?? t.clientY));
+      if (!touchTapDragging && fromStart > TAP_DISTANCE) touchTapDragging = true;
+      if (touchTapDragging || Math.abs(dx) > PAN_THRESHOLD || Math.abs(dy) > PAN_THRESHOLD) {
+        touchTapDragging = true;
+        camX -= (dx / FOV) * DRAG_PAN_MULT;
+        camY -= (dy / FOV) * DRAG_PAN_MULT;
+        const dz = -dy * DRAG_Z_SENSITIVITY;
+        if (dz !== 0) advance(dz);
+        draw();
+        updateNotesPositions();
+      }
       lastTouchX = t.clientX;
       lastTouchY = t.clientY;
       e.preventDefault();
@@ -479,17 +489,18 @@
   function onTouchEnd(e) {
     if (!e || !e.touches || e.touches.length < 2) lastTouchDist = null;
     bumpActivity();
-    if (!e || !e.touches || e.touches.length === 0) { lastTouchX = lastTouchY = null; }
+    if (!e || !e.touches || e.touches.length === 0) {
+      const dt = Date.now() - (touchTapTime || 0);
+      if (!touchTapDragging && dt <= TAP_TIME_MS) {
+        tryOpenNoteAt(lastTouchX ?? cx, lastTouchY ?? cy);
+      }
+      lastTouchX = lastTouchY = null;
+      touchTapDragging = false;
+    }
   }
 
   function onClick(e) {
     tryOpenNoteAt(e.clientX, e.clientY);
-  }
-    const threshold = 18;
-    if (best && bestDist2 <= threshold * threshold) {
-      openNoteForStar(best, { autoCloseMs: MANUAL_CLOSE_MS });
-      bumpActivity();
-    }
   }
 
   // Init
