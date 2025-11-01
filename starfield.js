@@ -29,7 +29,7 @@
   const SUNFLOWER_RATE = 0.09; // as estrelas viram sunflower
   const WHEEL_SENSITIVITY = 0.0015; // tune forward/backward speed
   const PINCH_SENSITIVITY = 0.006;  // tune for touch pinch
-  const MESSAGE_RATE = 0.01; // ~1% das estrelas com mensagem
+  const MESSAGE_RATE = 0.5; // ~1% das estrelas com mensagem
   const DRAG_Z_SENSITIVITY = 0.002; // avanço/recuo com arrasto de um dedo
   const DRAG_PAN_MULT = 1.0;        // pan lateral com arrasto
   const TAP_DISTANCE = 10;          // px
@@ -59,7 +59,7 @@
   let autoplayTimer = null;
   let autoplayRunning = false;
   let autoplayIndex = 0;
-  const IDLE_MS = 10000; // 10s parado inicia o autoplay
+  const IDLE_MS = 5000; // 10s parado inicia o autoplay
   const AUTO_OPEN_MS = 2800; // tempo com a nota aberta
   const AUTO_GAP_MS = 600;   // intervalo entre fechar e abrir a pr�xima
   const MANUAL_CLOSE_MS = 5000; // auto-fechamento de nota manual (~5s)
@@ -355,6 +355,7 @@
   let lastDragX = null;
   let lastDragY = null;
   let tapStartX = null, tapStartY = null, tapStartTime = 0, tapPointerId = null, isTapDragging = false;
+  let suppressClickUntil = 0; // suprimir clique após tratar tap
 
   function distance(p1, p2) {
     const dx = p1.x - p2.x;
@@ -426,7 +427,9 @@
         const dt = Date.now() - (tapStartTime || 0);
         const moved = Math.hypot((e.clientX - (tapStartX ?? e.clientX)), (e.clientY - (tapStartY ?? e.clientY)));
         if (!isTapDragging && dt <= TAP_TIME_MS && moved <= TAP_DISTANCE) {
-          tryOpenNoteAt(e.clientX, e.clientY);
+          if (tryOpenNoteAt(e.clientX, e.clientY)) {
+            suppressClickUntil = Date.now() + 400; // avoid duplicate click
+          }
         }
       }
       lastDragX = lastDragY = null;
@@ -492,7 +495,9 @@
     if (!e || !e.touches || e.touches.length === 0) {
       const dt = Date.now() - (touchTapTime || 0);
       if (!touchTapDragging && dt <= TAP_TIME_MS) {
-        tryOpenNoteAt(lastTouchX ?? cx, lastTouchY ?? cy);
+        if (tryOpenNoteAt(lastTouchX ?? cx, lastTouchY ?? cy)) {
+          suppressClickUntil = Date.now() + 400;
+        }
       }
       lastTouchX = lastTouchY = null;
       touchTapDragging = false;
@@ -500,6 +505,7 @@
   }
 
   function onClick(e) {
+    if (Date.now() < suppressClickUntil) return;
     tryOpenNoteAt(e.clientX, e.clientY);
   }
 
