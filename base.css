@@ -234,14 +234,13 @@ html, body {
   left: 50%;
   top: 50%;
   transform: translate(-50%, -50%);
-  width: 49%;
+  width: 45%;
+  aspect-ratio: 1 / 1;
   height: auto;
+  object-fit: cover;
+  border-radius: 50%;
   z-index: 11;
   pointer-events: none;
-  -webkit-mask-image: radial-gradient(circle at center, rgba(0,0,0,1) 78%, rgba(0,0,0,0) 80%);
-          mask-image: radial-gradient(circle at center, rgba(0,0,0,1) 78%, rgba(0,0,0,0) 80%);
-  -webkit-mask-repeat: no-repeat;
-          mask-repeat: no-repeat;
-  -webkit-mask-size: 100% 100%;
-          mask-size: 100% 100%;
+  /* optional glow ring for integration */
+  /* box-shadow: 0 0 20px rgba(255,255,255,0.08), 0 0 40px rgba(255,0,239,0.06); */
 }
